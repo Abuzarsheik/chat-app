@@ -12,7 +12,7 @@ import {
 } from '../types'
 
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://chat-app-production-e973.up.railway.app'
 
 // Axios instance with default config
 const apiClient: AxiosInstance = axios.create({
