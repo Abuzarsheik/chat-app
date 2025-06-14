@@ -30,7 +30,11 @@ const server = createServer(app);
 // Initialize Socket.IO with CORS
 const io = new SocketIOServer(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:3000",
+      "http://localhost:3000",
+      "https://chat-app-frontend-xi-red.vercel.app"
+    ],
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -73,7 +77,9 @@ app.use(cors({
     const allowedOrigins = [
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000',
-      'http://127.0.0.1:3000'
+      'http://127.0.0.1:3000',
+      'https://chat-app-frontend-xi-red.vercel.app', // Production frontend
+      'https://chat-app-frontend-xi-red.vercel.app/' // With trailing slash
     ];
     
     // Allow requests with no origin (like mobile apps or curl requests)
