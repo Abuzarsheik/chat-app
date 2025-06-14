@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { RegisterFormData } from '../../types';
-import LoadingSpinner from '../common/LoadingSpinner';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState<RegisterFormData>({
@@ -11,9 +10,9 @@ const Register: React.FC = () => {
     password: '',
     confirmPassword: '',
   });
+  const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<RegisterFormData>>({});
-  
-  const { register, state } = useAuth();
+  const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,8 +38,6 @@ const Register: React.FC = () => {
       newErrors.username = 'Username is required';
     } else if (formData.username.length < 3) {
       newErrors.username = 'Username must be at least 3 characters';
-    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      newErrors.username = 'Username can only contain letters, numbers, and underscores';
     }
     
     if (!formData.email) {
@@ -53,8 +50,6 @@ const Register: React.FC = () => {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
-    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      newErrors.password = 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
     }
     
     if (!formData.confirmPassword) {
@@ -72,11 +67,15 @@ const Register: React.FC = () => {
     
     if (!validateForm()) return;
     
+    setIsLoading(true);
+
     try {
       await register(formData);
       navigate('/chat');
     } catch (error) {
-      // Error is handled in the auth context
+      console.error('Registration error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -95,7 +94,7 @@ const Register: React.FC = () => {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
               />
             </svg>
           </div>
@@ -103,16 +102,10 @@ const Register: React.FC = () => {
             Create your account
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link
-              to="/login"
-              className="font-medium text-blue-600 hover:text-blue-500"
-            >
-              sign in to your existing account
-            </Link>
+            Join the conversation
           </p>
         </div>
-        
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
@@ -123,15 +116,14 @@ const Register: React.FC = () => {
                 id="username"
                 name="username"
                 type="text"
-                autoComplete="username"
                 required
                 className={`form-input mt-1 ${
                   errors.username ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : ''
                 }`}
-                placeholder="Enter your username"
+                placeholder="Choose a username"
                 value={formData.username}
                 onChange={handleChange}
-                disabled={state.loading}
+                disabled={isLoading}
               />
               {errors.username && (
                 <p className="mt-1 text-sm text-red-600">{errors.username}</p>
@@ -146,21 +138,20 @@ const Register: React.FC = () => {
                 id="email"
                 name="email"
                 type="email"
-                autoComplete="email"
                 required
                 className={`form-input mt-1 ${
                   errors.email ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : ''
                 }`}
-                placeholder="Enter your email"
+                placeholder="your@email.com"
                 value={formData.email}
                 onChange={handleChange}
-                disabled={state.loading}
+                disabled={isLoading}
               />
               {errors.email && (
                 <p className="mt-1 text-sm text-red-600">{errors.email}</p>
               )}
             </div>
-            
+
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
@@ -169,15 +160,14 @@ const Register: React.FC = () => {
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="new-password"
                 required
                 className={`form-input mt-1 ${
                   errors.password ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : ''
                 }`}
-                placeholder="Enter your password"
+                placeholder="Create a password"
                 value={formData.password}
                 onChange={handleChange}
-                disabled={state.loading}
+                disabled={isLoading}
               />
               {errors.password && (
                 <p className="mt-1 text-sm text-red-600">{errors.password}</p>
@@ -192,7 +182,6 @@ const Register: React.FC = () => {
                 id="confirmPassword"
                 name="confirmPassword"
                 type="password"
-                autoComplete="new-password"
                 required
                 className={`form-input mt-1 ${
                   errors.confirmPassword ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : ''
@@ -200,7 +189,7 @@ const Register: React.FC = () => {
                 placeholder="Confirm your password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                disabled={state.loading}
+                disabled={isLoading}
               />
               {errors.confirmPassword && (
                 <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
@@ -211,18 +200,33 @@ const Register: React.FC = () => {
           <div>
             <button
               type="submit"
-              disabled={state.loading}
-              className="btn btn-primary w-full flex justify-center items-center space-x-2"
+              disabled={isLoading}
+              className="btn btn-primary group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {state.loading ? (
-                <>
-                  <LoadingSpinner size="sm" />
-                  <span>Creating account...</span>
-                </>
+              {isLoading ? (
+                <div className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Creating account...
+                </div>
               ) : (
                 'Create account'
               )}
             </button>
+          </div>
+
+          <div className="text-center">
+            <span className="text-sm text-gray-600">
+              Already have an account?{' '}
+              <Link
+                to="/login"
+                className="font-medium text-blue-600 hover:text-blue-500"
+              >
+                Sign in here
+              </Link>
+            </span>
           </div>
         </form>
       </div>
