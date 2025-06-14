@@ -56,13 +56,24 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    // Handle token expiration
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Handle token expiration - but skip for login/register endpoints
+    const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || 
+                          originalRequest.url?.includes('/auth/register')
+                          
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true
       
       try {
-        // Try to refresh the token
+        // Only try to refresh if we have a refresh token
         const { useAuthStore } = await import('../stores/authStore')
+        const refreshToken = useAuthStore.getState().refreshToken
+        
+        if (!refreshToken) {
+          // No refresh token available, just reject the request
+          return Promise.reject(error)
+        }
+        
+        // Try to refresh the token
         await useAuthStore.getState().refreshAuth()
         
         // Retry the original request
