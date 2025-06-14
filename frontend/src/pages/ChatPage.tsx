@@ -128,7 +128,33 @@ const ChatPage: React.FC = () => {
       const response = await usersApi.getConversations();
       
       if (response.success && response.data) {
-        setConversations(response.data);
+        // Transform API Conversation[] to ChatConversation[]
+        const transformedConversations: ChatConversation[] = response.data.map((conv: any) => ({
+          _id: conv.id || conv._id,
+          participants: [
+            {
+              _id: user?.id || '',
+              username: user?.username || '',
+              email: user?.email || '',
+              isOnline: true,
+              lastSeen: new Date().toISOString()
+            },
+            {
+              _id: conv.participant?.id || conv.participant?._id || 'unknown',
+              username: conv.participant?.username || 'Unknown User',
+              email: conv.participant?.email || '',
+              isOnline: conv.participant?.online || false,
+              lastSeen: conv.participant?.lastSeen || new Date().toISOString()
+            }
+          ],
+          lastMessage: conv.lastMessage ? {
+            content: conv.lastMessage.content,
+            sender: conv.participant?.username || 'Unknown',
+            timestamp: conv.lastMessage.createdAt || new Date().toISOString()
+          } : undefined,
+          unreadCount: conv.unreadCount || 0
+        }));
+        setConversations(transformedConversations);
       } else {
         // Fallback to mock data if API fails
         const mockConversations: ChatConversation[] = [
