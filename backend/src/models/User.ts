@@ -7,7 +7,6 @@ const UserSchema = new Schema<IUser>(
     username: {
       type: String,
       required: [true, 'Username is required'],
-      unique: true,
       trim: true,
       minlength: [3, 'Username must be at least 3 characters long'],
       maxlength: [30, 'Username cannot exceed 30 characters'],
@@ -16,7 +15,6 @@ const UserSchema = new Schema<IUser>(
     email: {
       type: String,
       required: [true, 'Email is required'],
-      unique: true,
       trim: true,
       lowercase: true,
       match: [
@@ -53,9 +51,9 @@ const UserSchema = new Schema<IUser>(
   }
 );
 
-// Index for faster queries
-UserSchema.index({ email: 1 });
-UserSchema.index({ username: 1 });
+// Indexes for faster queries and uniqueness
+UserSchema.index({ email: 1 }, { unique: true });
+UserSchema.index({ username: 1 }, { unique: true });
 UserSchema.index({ online: 1 });
 
 // Hash password before saving

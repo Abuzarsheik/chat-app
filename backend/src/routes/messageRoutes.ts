@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import {
   getConversation,
-  sendMessage
+  sendMessage,
+  getRecentConversations
 } from '../controllers/messageController';
 import {
   validateMessage,
@@ -37,6 +38,7 @@ const conversationLimiter = rateLimit({
 router.use(authenticateToken);
 
 // Message routes
+router.get('/conversations', conversationLimiter, getRecentConversations);
 router.get('/:userId', conversationLimiter, getConversation);
 router.post('/', messageLimiter, validateMessage, handleValidationErrors, sendMessage);
 

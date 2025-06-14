@@ -161,7 +161,7 @@ export const usersApi = {
     })),
 
   getConversations: (): Promise<ApiResponse<Conversation[]>> =>
-    handleApiRequest(() => apiClient.get('/users/conversations')),
+    handleApiRequest(() => apiClient.get('/messages/conversations')),
 
   getUnreadCounts: (): Promise<ApiResponse<Record<string, number>>> =>
     handleApiRequest(() => apiClient.get('/users/unread-counts')),

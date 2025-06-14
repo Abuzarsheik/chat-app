@@ -116,12 +116,19 @@ MessageSchema.statics.getUnreadCount = function(userId: string) {
 
 // Static method to get recent conversations
 MessageSchema.statics.getRecentConversations = function(userId: string) {
+  // Validate and convert userId to ObjectId
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new Error('Invalid user ID format');
+  }
+  
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+  
   return this.aggregate([
     {
       $match: {
         $or: [
-          { sender: new mongoose.Types.ObjectId(userId) },
-          { recipient: new mongoose.Types.ObjectId(userId) }
+          { sender: userObjectId },
+          { recipient: userObjectId }
         ]
       }
     },
@@ -132,7 +139,7 @@ MessageSchema.statics.getRecentConversations = function(userId: string) {
       $group: {
         _id: {
           $cond: {
-            if: { $eq: ['$sender', new mongoose.Types.ObjectId(userId)] },
+            if: { $eq: ['$sender', userObjectId] },
             then: '$recipient',
             else: '$sender'
           }
@@ -143,8 +150,8 @@ MessageSchema.statics.getRecentConversations = function(userId: string) {
             $cond: {
               if: {
                 $and: [
-                  { $eq: ['$recipient', new mongoose.Types.ObjectId(userId)] },
-                  { $not: { $in: [new mongoose.Types.ObjectId(userId), '$readBy'] } }
+                  { $eq: ['$recipient', userObjectId] },
+                  { $not: { $in: [userObjectId, '$readBy'] } }
                 ]
               },
               then: 1,

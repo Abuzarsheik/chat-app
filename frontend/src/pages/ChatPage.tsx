@@ -20,7 +20,7 @@ import {
   Palette
 } from 'lucide-react';
 
-interface Message {
+interface ChatMessage {
   _id: string;
   content: string;
   sender: {
@@ -33,7 +33,7 @@ interface Message {
   createdAt: string;
 }
 
-interface Conversation {
+interface ChatConversation {
   _id: string;
   participants: Array<{
     _id: string;
@@ -51,6 +51,8 @@ interface Conversation {
   unreadCount: number;
 }
 
+
+
 const ChatPage: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { socket, isConnected, onlineUsers } = useSocket();
@@ -58,8 +60,8 @@ const ChatPage: React.FC = () => {
   // State management
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [message, setMessage] = useState('');
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -87,7 +89,7 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('receive-message', (newMessage: Message) => {
+    socket.on('receive-message', (newMessage: ChatMessage) => {
       setMessages(prev => [...prev, newMessage]);
       // Update conversation last message
       setConversations(prev => prev.map(conv => {
@@ -106,7 +108,7 @@ const ChatPage: React.FC = () => {
       toast.success(`New message from ${newMessage.sender.username}`);
     });
 
-    socket.on('message-sent', (sentMessage: Message) => {
+    socket.on('message-sent', (sentMessage: ChatMessage) => {
       setMessages(prev => [...prev, sentMessage]);
     });
 
@@ -120,8 +122,47 @@ const ChatPage: React.FC = () => {
   const loadConversations = async () => {
     try {
       setIsLoading(true);
-      // For now, create mock conversations with demo users
-      const mockConversations: Conversation[] = [
+      // Try to load real conversations from API
+      const { usersApi } = await import('../services/api');
+      const response = await usersApi.getConversations();
+      
+      if (response.success && response.data) {
+        setConversations(response.data);
+      } else {
+        // Fallback to mock data if API fails
+        const mockConversations: ChatConversation[] = [
+          {
+            _id: 'conv1',
+            participants: [
+              {
+                _id: user?.id || '',
+                username: user?.username || '',
+                email: user?.email || '',
+                isOnline: true,
+                lastSeen: new Date().toISOString()
+              },
+              {
+                _id: 'demo2-id',
+                username: 'TestUser',
+                email: 'demo2@chatapp.com',
+                isOnline: false,
+                lastSeen: new Date().toISOString()
+              }
+            ],
+            lastMessage: {
+              content: 'Hello! How are you?',
+              sender: 'TestUser',
+              timestamp: new Date().toISOString()
+            },
+            unreadCount: 0
+          }
+        ];
+        setConversations(mockConversations);
+      }
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+      // Fallback to mock data on error
+      const mockConversations: ChatConversation[] = [
         {
           _id: 'conv1',
           participants: [
@@ -149,9 +190,7 @@ const ChatPage: React.FC = () => {
         }
       ];
       setConversations(mockConversations);
-    } catch (error) {
-      console.error('Error loading conversations:', error);
-      toast.error('Failed to load conversations');
+      toast.error('Using offline mode - some features may be limited');
     } finally {
       setIsLoading(false);
     }
@@ -162,7 +201,7 @@ const ChatPage: React.FC = () => {
     try {
       setIsLoading(true);
       // For now, create mock messages
-      const mockMessages: Message[] = [
+      const mockMessages: ChatMessage[] = [
         {
           _id: 'msg1',
           content: 'Hello! How are you?',
