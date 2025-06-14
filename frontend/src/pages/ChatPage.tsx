@@ -10,11 +10,11 @@ import {
   Send, 
   MoreVertical, 
   X, 
-  Moon, 
-  Sun,
-  User,
-  Mail,
-  Phone,
+  // Moon, 
+  // Sun,
+  // User,
+  // Mail,
+  // Phone,
   Bell,
   Shield,
   Palette
@@ -51,7 +51,8 @@ interface ChatConversation {
   unreadCount: number;
 }
 
-
+// Quick type fix for deployment
+type Message = ChatMessage;
 
 const ChatPage: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -197,7 +198,7 @@ const ChatPage: React.FC = () => {
   };
 
   // Load messages for selected conversation
-  const loadMessages = async (conversationId: string) => {
+  const loadMessages = async (_conversationId: string) => {
     try {
       setIsLoading(true);
       // For now, create mock messages
@@ -260,7 +261,7 @@ const ChatPage: React.FC = () => {
 
          try {
        // Create new message object
-       const newMessage: Message = {
+       const newMessage: ChatMessage = {
          _id: `msg-${Date.now()}`,
          content: message.trim(),
          sender: {

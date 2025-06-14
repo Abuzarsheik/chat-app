@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import axios, { AxiosInstance, AxiosResponse } from 'axios'
 import toast from 'react-hot-toast'
 import { 
   User, 
@@ -12,7 +12,7 @@ import {
 } from '../types'
 
 // API Configuration
-const API_BASE_URL = 'http://localhost:5000'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 // Axios instance with default config
 const apiClient: AxiosInstance = axios.create({

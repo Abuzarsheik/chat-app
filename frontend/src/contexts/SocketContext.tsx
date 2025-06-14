@@ -36,7 +36,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   useEffect(() => {
     if (user && accessToken) {
       // Create socket connection
-      const newSocket = io('http://localhost:5000', {
+      const newSocket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000', {
         auth: {
           token: accessToken
         },
