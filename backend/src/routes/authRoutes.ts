@@ -21,10 +21,10 @@ import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
-// Rate limiting for auth routes
+// Rate limiting for auth routes - relaxed for demo purposes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
+  max: 50, // limit each IP to 50 requests per windowMs (increased for demo)
   message: {
     success: false,
     message: 'Too many authentication attempts, please try again later',
