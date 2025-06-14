@@ -1,290 +1,188 @@
-# 💬 Real-Time Chat Application
+# 🚀 Real-Time Chat Application
 
-A modern, full-stack real-time chat application built with the MERN stack, featuring instant messaging, user authentication, and real-time notifications.
+A full-stack, real-time messaging application built with the MERN stack (MongoDB, Express.js, React.js, Node.js) using TypeScript and Tailwind CSS.
 
-![Chat App Demo](https://via.placeholder.com/800x400/3B82F6/FFFFFF?text=Real-Time+Chat+App)
+## ✨ Features
 
-## 🚀 Features
+### 🔐 Authentication & Security
+- JWT-based authentication with refresh and access tokens
+- bcrypt password hashing
+- Protected routes and WebSocket connections
+- Input sanitization and validation
+- Rate limiting and security headers
 
-### ✨ Core Features
-- **Real-time messaging** with Socket.io
-- **User authentication** (JWT-based)
-- **Online/offline status** indicators
-- **Typing indicators**
-- **Message history** persistence
-- **Responsive design** for all devices
-- **User search** and contact management
+### 💬 Real-Time Messaging
+- Socket.io for real-time communication
+- 1-to-1 private messaging
+- Message history stored in MongoDB
+- Online/offline user status
+- Typing indicators
+- Unread message badges
+- Toast notifications
 
-### 🔒 Security
-- JWT token authentication
-- Password hashing with bcrypt
-- Protected API routes
-- Input validation and sanitization
-- CORS protection
+### 🎨 Modern UI/UX
+- Fully responsive mobile-first design
+- Dark/light mode toggle
+- Tailwind CSS styling
+- Loading skeletons
+- Smooth animations and transitions
+- Emoji support
 
 ## 🛠️ Tech Stack
+
+### Backend
+- **Node.js** & **Express.js** with TypeScript
+- **MongoDB** with Mongoose ODM
+- **Socket.io** for real-time communication
+- **JWT** for authentication
+- **bcrypt** for password hashing
+- **Helmet** for security headers
+- **Express-rate-limit** for rate limiting
 
 ### Frontend
 - **React 18** with TypeScript
 - **Tailwind CSS** for styling
-- **Socket.io Client** for real-time communication
-- **React Router** for navigation
-- **Axios** for API calls
+- **Socket.io-client** for real-time communication  
+- **React Router DOM** for navigation
+- **React Hook Form** for form handling
 - **React Hot Toast** for notifications
-
-### Backend
-- **Node.js** with Express.js
-- **TypeScript** for type safety
-- **Socket.io** for WebSocket connections
-- **MongoDB** with Mongoose ODM
-- **JWT** for authentication
-- **bcrypt** for password hashing
-
-### Development Tools
-- **Nodemon** for development
-- **Concurrently** for running services
-- **ESLint** and **Prettier** for code quality
-
-## 📋 Prerequisites
-
-Before running this application, ensure you have:
-
-- **Node.js** (v16 or higher)
-- **npm** or **yarn**
-- **MongoDB** (local or MongoDB Atlas)
-- **Git**
+- **Lucide React** for icons
 
 ## 🚀 Quick Start
 
-### 1. Clone the Repository
+### Prerequisites
+- Node.js (v18 or higher)
+- MongoDB (local or MongoDB Atlas)
+- npm or yarn
 
+### Installation
+
+1. **Clone the repository**
 ```bash
-git clone https://github.com/Abuzarsheik/chat-app.git
-cd chat-app
+git clone <your-repo-url>
+cd realtime-chat-app
 ```
 
-### 2. Install Dependencies
-
+2. **Install dependencies**
 ```bash
-# Install root dependencies
 npm install
-
-# Install backend dependencies
-cd backend && npm install
-
-# Install frontend dependencies
-cd ../frontend && npm install
 ```
 
-### 3. Environment Configuration
+3. **Set up environment variables**
 
-#### Backend (.env)
-Create a `.env` file in the `backend` directory:
-
+Create `.env` in the backend directory:
 ```env
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/chatapp
-JWT_SECRET=your_super_secret_jwt_key_here_make_it_long_and_random
 NODE_ENV=development
-CLIENT_URL=http://localhost:3000
+PORT=5000
+MONGODB_URI=mongodb://localhost:27017/chat-app
+JWT_SECRET=your-super-secret-jwt-key
+JWT_REFRESH_SECRET=your-super-secret-refresh-key
+FRONTEND_URL=http://localhost:3000
 ```
 
-#### Frontend (.env)
-Create a `.env` file in the `frontend` directory:
-
+Create `.env.local` in the frontend directory:
 ```env
-REACT_APP_API_URL=http://localhost:5000/api
-REACT_APP_SOCKET_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5000
+VITE_SOCKET_URL=http://localhost:5000
 ```
 
-### 4. Start MongoDB
-
+4. **Start the development servers**
 ```bash
-# Local MongoDB
-mongod
-
-# Or using MongoDB service
-sudo systemctl start mongod
-```
-
-### 5. Run the Application
-
-#### Option A: Run Both Services Together
-```bash
-# From root directory
 npm run dev
 ```
 
-#### Option B: Run Services Separately
-```bash
-# Terminal 1 - Backend
-cd backend && npm run dev
-
-# Terminal 2 - Frontend
-cd frontend && npm start
-```
-
-### 6. Access the Application
-
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:5000
-- **Health Check**: http://localhost:5000/api/health
+This will start both the backend server (http://localhost:5000) and frontend (http://localhost:3000).
 
 ## 📁 Project Structure
 
 ```
-chat-app/
-├── backend/                 # Node.js backend
+realtime-chat-app/
+├── backend/                 # Express.js backend
 │   ├── src/
-│   │   ├── config/         # Database & Socket.io configuration
-│   │   ├── controllers/    # Route handlers
-│   │   ├── middleware/     # Auth & validation middleware
-│   │   ├── models/         # MongoDB schemas
+│   │   ├── controllers/     # Route controllers
+│   │   ├── middleware/      # Custom middleware
+│   │   ├── models/         # MongoDB models
 │   │   ├── routes/         # API routes
-│   │   └── index.ts        # Server entry point
-│   ├── .env.example        # Environment template
+│   │   ├── sockets/        # Socket.io handlers
+│   │   ├── types/          # TypeScript types
+│   │   ├── utils/          # Utility functions
+│   │   └── server.ts       # Main server file
 │   └── package.json
-├── frontend/               # React frontend
+├── frontend/               # React.js frontend
 │   ├── src/
 │   │   ├── components/     # React components
-│   │   │   ├── auth/       # Authentication components
-│   │   │   ├── chat/       # Chat interface components
-│   │   │   └── common/     # Shared components
-│   │   ├── contexts/       # React context providers
-│   │   ├── services/       # API & Socket services
-│   │   ├── types/          # TypeScript definitions
-│   │   └── App.tsx         # Main app component
-│   ├── .env.example        # Environment template
+│   │   ├── contexts/       # React contexts
+│   │   ├── hooks/          # Custom hooks
+│   │   ├── pages/          # Page components
+│   │   ├── types/          # TypeScript types
+│   │   ├── utils/          # Utility functions
+│   │   └── App.tsx         # Main App component
 │   └── package.json
-├── .gitignore              # Git ignore rules
-├── README.md               # This file
-└── package.json            # Root package configuration
+└── package.json           # Root package.json
 ```
 
-## 🔌 API Endpoints
+## 🔄 API Endpoints
 
 ### Authentication
 - `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/profile` - Get user profile
-
-### Messages
-- `GET /api/messages/conversations` - Get user conversations
-- `GET /api/messages/:userId` - Get messages with specific user
-- `POST /api/messages` - Send new message
-- `PUT /api/messages/read/:userId` - Mark messages as read
+- `POST /api/auth/login` - Login user
+- `POST /api/auth/logout` - Logout user
+- `POST /api/auth/refresh` - Refresh access token
 
 ### Users
-- `GET /api/users` - Get all users
-- `GET /api/users/search` - Search users
-- `GET /api/users/:id` - Get user by ID
-- `PUT /api/users/profile` - Update user profile
+- `GET /api/users` - Get all users (protected)
+- `GET /api/users/profile` - Get current user profile (protected)
 
-## 🌐 Socket.io Events
+### Messages
+- `GET /api/messages/:userId` - Get conversation history (protected)
 
-### Client → Server
-- `sendMessage` - Send new message
-- `typing` - Send typing indicator
-- `markAsRead` - Mark messages as read
+## 🔌 Socket Events
 
-### Server → Client
-- `receiveMessage` - Receive new message
-- `messageDelivered` - Message delivery confirmation
-- `userOnline` - User came online
-- `userOffline` - User went offline
-- `userTyping` - User is typing
-- `messagesRead` - Messages were read
+### Client to Server
+- `join` - Join user to their room
+- `send-message` - Send a message
+- `typing` - User is typing
+- `stop-typing` - User stopped typing
+
+### Server to Client
+- `receive-message` - Receive a new message
+- `user-online` - User came online
+- `user-offline` - User went offline
+- `typing` - Someone is typing
+- `stop-typing` - Someone stopped typing
 
 ## 🚀 Deployment
 
-### Frontend (Vercel/Netlify)
+### Backend (Render)
+1. Connect your GitHub repository to Render
+2. Set environment variables in Render dashboard
+3. Deploy as a Web Service
 
-1. Build the frontend:
-```bash
-cd frontend && npm run build
-```
+### Frontend (Vercel)
+1. Connect your GitHub repository to Vercel
+2. Set the root directory to `frontend`
+3. Set environment variables in Vercel dashboard
+4. Deploy
 
-2. Deploy to Vercel:
-```bash
-npx vercel --prod
-```
+## 🛡️ Security Features
 
-3. Set environment variables in your hosting platform.
-
-### Backend (Render/Railway/Heroku)
-
-1. Set production environment variables
-2. Use MongoDB Atlas for database
-3. Deploy using your preferred platform
-
-### Environment Variables for Production
-
-**Backend:**
-```env
-PORT=5000
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/chatapp
-JWT_SECRET=your_production_jwt_secret_key
-NODE_ENV=production
-CLIENT_URL=https://your-frontend-domain.com
-```
-
-**Frontend:**
-```env
-REACT_APP_API_URL=https://your-backend-domain.com/api
-REACT_APP_SOCKET_URL=https://your-backend-domain.com
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Port conflicts (EADDRINUSE)**
-   ```bash
-   # Kill processes using ports
-   npx kill-port 3000 5000
-   ```
-
-2. **MongoDB connection issues**
-   - Ensure MongoDB is running
-   - Check connection string in `.env`
-   - For Atlas, verify IP whitelist
-
-3. **Module resolution errors**
-   ```bash
-   # Clear caches and reinstall
-   rm -rf node_modules package-lock.json
-   npm install
-   ```
-
-4. **Socket.io connection issues**
-   - Verify `REACT_APP_SOCKET_URL` points to backend
-   - Check CORS configuration
+- Password hashing with bcrypt
+- JWT tokens with expiration
+- HTTP-only cookies for token storage
+- Input validation and sanitization
+- Rate limiting
+- CORS configuration
+- Security headers with Helmet
+- Protected routes and Socket.io connections
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
 5. Open a Pull Request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👨‍💻 Author
-
-**Abuzar Sheik**
-- GitHub: [@Abuzarsheik](https://github.com/Abuzarsheik)
-
-## 🙏 Acknowledgments
-
-- React team for the amazing framework
-- Socket.io for real-time communication
-- MongoDB for the database
-- Tailwind CSS for the styling system
-
----
-
-**⭐ If you found this project helpful, please give it a star!** 
+This project is licensed under the MIT License. 

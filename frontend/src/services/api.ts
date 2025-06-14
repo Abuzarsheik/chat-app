@@ -1,115 +1,216 @@
-import axios from 'axios';
-import {
-  User,
-  Message,
-  Conversation,
-  LoginFormData,
-  RegisterFormData,
-  SendMessageData,
-  AuthResponse,
-  MessagesResponse,
-  ConversationsResponse,
-  UsersResponse
-} from '../types';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import toast from 'react-hot-toast'
+import { 
+  User, 
+  Message, 
+  Conversation, 
+  LoginCredentials, 
+  RegisterData, 
+  ApiResponse, 
+  AuthResponse, 
+  UsersResponse 
+} from '../types'
 
-// Configure axios
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// API Configuration
+const API_BASE_URL = 'http://localhost:5000'
 
-const api = axios.create({
-  baseURL: API_URL,
-  withCredentials: true,
+// Axios instance with default config
+const apiClient: AxiosInstance = axios.create({
+  baseURL: `${API_BASE_URL}/api`,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
-});
+})
 
-// Add token to requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+// Token management
+let accessToken: string | null = null
+
+export const setAuthToken = (token: string | null) => {
+  accessToken = token
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
+  } else {
+    delete apiClient.defaults.headers.common['Authorization']
   }
-  return config;
-});
+}
 
-// Handle auth errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+// Request interceptor to add auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    if (accessToken && !config.headers['Authorization']) {
+      config.headers['Authorization'] = `Bearer ${accessToken}`
     }
-    return Promise.reject(error);
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
   }
-);
+)
 
-// Auth API
-export const authAPI = {
-  register: async (userData: RegisterFormData): Promise<AuthResponse> => {
-    const response = await api.post('/auth/register', userData);
-    return response.data;
+// Response interceptor for error handling
+apiClient.interceptors.response.use(
+  (response: AxiosResponse) => {
+    return response
   },
+  async (error) => {
+    const originalRequest = error.config
 
-  login: async (userData: LoginFormData): Promise<AuthResponse> => {
-    const response = await api.post('/auth/login', userData);
-    return response.data;
-  },
+    // Handle token expiration
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+      
+      try {
+        // Try to refresh the token
+        const { useAuthStore } = await import('../stores/authStore')
+        await useAuthStore.getState().refreshAuth()
+        
+        // Retry the original request
+        const newToken = useAuthStore.getState().accessToken
+        if (newToken) {
+          originalRequest.headers['Authorization'] = `Bearer ${newToken}`
+          return apiClient(originalRequest)
+        }
+      } catch (refreshError) {
+        // Refresh failed, logout user
+        const { useAuthStore } = await import('../stores/authStore')
+        useAuthStore.getState().logout()
+        toast.error('Session expired. Please login again.')
+        return Promise.reject(refreshError)
+      }
+    }
 
-  logout: async (): Promise<void> => {
-    await api.post('/auth/logout');
-    localStorage.removeItem('token');
-  },
+    // Handle other errors
+    const errorMessage = error.response?.data?.message || error.message || 'An error occurred'
+    
+    // Don't show toast for authentication errors (handled by forms)
+    if (error.response?.status !== 401 && error.response?.status !== 400) {
+      toast.error(errorMessage)
+    }
 
-  getProfile: async (): Promise<{ user: User }> => {
-    const response = await api.get('/auth/profile');
-    return response.data;
-  },
-};
+    return Promise.reject(error)
+  }
+)
 
-// Messages API
-export const messagesAPI = {
-  getConversations: async (): Promise<ConversationsResponse> => {
-    const response = await api.get('/messages/conversations');
-    return response.data;
-  },
+// Generic API request handler
+const handleApiRequest = async <T>(
+  requestFn: () => Promise<AxiosResponse<ApiResponse<T>>>
+): Promise<ApiResponse<T>> => {
+  try {
+    const response = await requestFn()
+    return response.data
+  } catch (error: any) {
+    if (error.response?.data) {
+      return error.response.data
+    }
+    
+    return {
+      success: false,
+      message: error.message || 'Network error',
+      error: 'NETWORK_ERROR'
+    }
+  }
+}
 
-  getMessages: async (userId: string): Promise<MessagesResponse> => {
-    const response = await api.get(`/messages/${userId}`);
-    return response.data;
-  },
+// Authentication API
+export const authApi = {
+  login: (credentials: LoginCredentials): Promise<ApiResponse<AuthResponse>> =>
+    handleApiRequest(() => apiClient.post('/auth/login', credentials)),
 
-  sendMessage: async (messageData: SendMessageData): Promise<{ message: Message }> => {
-    const response = await api.post('/messages', messageData);
-    return response.data;
-  },
+  register: (data: RegisterData): Promise<ApiResponse<AuthResponse>> =>
+    handleApiRequest(() => apiClient.post('/auth/register', data)),
 
-  markAsRead: async (userId: string): Promise<void> => {
-    await api.put(`/messages/read/${userId}`);
-  },
-};
+  logout: (): Promise<ApiResponse<null>> =>
+    handleApiRequest(() => apiClient.post('/auth/logout')),
+
+  refreshToken: (refreshToken: string): Promise<ApiResponse<AuthResponse>> =>
+    handleApiRequest(() => apiClient.post('/auth/refresh', { refreshToken })),
+
+  getProfile: (): Promise<ApiResponse<User>> =>
+    handleApiRequest(() => apiClient.get('/auth/profile')),
+
+  updateProfile: (data: Partial<User>): Promise<ApiResponse<User>> =>
+    handleApiRequest(() => apiClient.put('/auth/profile', data)),
+
+  changePassword: (data: {
+    currentPassword: string
+    newPassword: string
+    confirmPassword: string
+  }): Promise<ApiResponse<null>> =>
+    handleApiRequest(() => apiClient.put('/auth/change-password', data)),
+}
 
 // Users API
-export const usersAPI = {
-  getUsers: async (): Promise<UsersResponse> => {
-    const response = await api.get('/users');
-    return response.data;
-  },
+export const usersApi = {
+  getUsers: (params?: {
+    search?: string
+    page?: number
+    limit?: number
+  }): Promise<ApiResponse<UsersResponse>> =>
+    handleApiRequest(() => apiClient.get('/users', { params })),
 
-  searchUsers: async (query: string): Promise<UsersResponse> => {
-    const response = await api.get('/users/search', { params: { q: query } });
-    return response.data;
-  },
+  getOnlineUsers: (): Promise<ApiResponse<User[]>> =>
+    handleApiRequest(() => apiClient.get('/users/online')),
 
-  getUserById: async (userId: string): Promise<{ user: User }> => {
-    const response = await api.get(`/users/${userId}`);
-    return response.data;
-  },
+  getUserById: (userId: string): Promise<ApiResponse<User>> =>
+    handleApiRequest(() => apiClient.get(`/users/${userId}`)),
 
-  updateProfile: async (userData: Partial<User>): Promise<{ user: User }> => {
-    const response = await api.put('/users/profile', userData);
-    return response.data;
-  },
-};
+  searchUsers: (query: string, limit?: number): Promise<ApiResponse<User[]>> =>
+    handleApiRequest(() => apiClient.get('/users/search', { 
+      params: { q: query, limit } 
+    })),
 
-export default api; 
+  getConversations: (): Promise<ApiResponse<Conversation[]>> =>
+    handleApiRequest(() => apiClient.get('/users/conversations')),
+
+  getUnreadCounts: (): Promise<ApiResponse<Record<string, number>>> =>
+    handleApiRequest(() => apiClient.get('/users/unread-counts')),
+}
+
+// Messages API
+export const messagesApi = {
+  getConversation: (
+    userId: string, 
+    params?: { page?: number; limit?: number }
+  ): Promise<ApiResponse<{ messages: Message[]; pagination: any }>> =>
+    handleApiRequest(() => apiClient.get(`/messages/${userId}`, { params })),
+
+  sendMessage: (data: {
+    recipientId: string
+    content: string
+    messageType?: 'text' | 'image' | 'file'
+  }): Promise<ApiResponse<Message>> =>
+    handleApiRequest(() => apiClient.post('/messages', data)),
+
+  markAsRead: (messageIds: string[]): Promise<ApiResponse<null>> =>
+    handleApiRequest(() => apiClient.post('/messages/mark-read', { messageIds })),
+
+  deleteMessage: (messageId: string): Promise<ApiResponse<null>> =>
+    handleApiRequest(() => apiClient.delete(`/messages/${messageId}`)),
+
+  searchMessages: (
+    query: string, 
+    userId?: string, 
+    limit?: number
+  ): Promise<ApiResponse<{ messages: Message[]; totalResults: number }>> =>
+    handleApiRequest(() => apiClient.get('/messages/search', { 
+      params: { q: query, userId, limit } 
+    })),
+}
+
+// Health check
+export const healthApi = {
+  check: (): Promise<ApiResponse<{ 
+    status: string
+    timestamp: string
+    uptime: number
+    environment: string
+  }>> =>
+    handleApiRequest(() => apiClient.get('/health')),
+}
+
+
+
+// Export the configured axios instance for direct use if needed
+export { apiClient }
+export default apiClient 

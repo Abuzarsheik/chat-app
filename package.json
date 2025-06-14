@@ -1,28 +1,32 @@
-
 {
   "name": "realtime-chat-app",
   "version": "1.0.0",
-  "description": "Full-stack real-time chat application with MERN stack, TypeScript, and Socket.io",
-  "main": "index.js",
+  "description": "Full-stack real-time messaging application using MERN stack with TypeScript",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run dev",
-    "build": "cd frontend && npm run build",
-    "start": "cd backend && npm start",
-    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm run dev",
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "cd backend && npm run build",
+    "build:client": "cd frontend && npm run build",
+    "start": "cd backend && npm start"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   },
   "keywords": [
-    "chat",
-    "realtime",
     "mern",
     "typescript",
     "socket.io",
-    "tailwind"
+    "real-time",
+    "chat",
+    "messaging"
   ],
   "author": "Your Name",
-  "license": "MIT",
-  "devDependencies": {
-    "concurrently": "^8.2.2"
-  }
+  "license": "MIT"
 } 

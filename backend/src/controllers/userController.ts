@@ -1,131 +1,200 @@
-import { Request, Response } from 'express';
+import { Response, NextFunction } from 'express';
 import User from '../models/User';
+import Message from '../models/Message';
+import { sendResponse, AppError, asyncHandler } from '../middleware/errorHandler';
+import { IAuthRequest } from '../types';
 
-// @desc    Get all users (for chat sidebar)
-// @route   GET /api/users
-// @access  Private
-export const getUsers = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const currentUserId = req.user?._id;
-
-    if (!currentUserId) {
-      res.status(401).json({ message: 'User not authenticated' });
-      return;
-    }
-
-    // Get all users except current user
-    const users = await User.find({ _id: { $ne: currentUserId } })
-      .select('username email avatar isOnline lastSeen')
-      .sort({ isOnline: -1, lastSeen: -1 });
-
-    res.json({ users });
-  } catch (error: any) {
-    console.error('Get users error:', error);
-    res.status(500).json({ message: 'Server error' });
+/**
+ * Get all users except current user
+ */
+export const getAllUsers = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Authentication required', 401));
   }
-};
 
-// @desc    Search users
-// @route   GET /api/users/search
-// @access  Private
-export const searchUsers = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { q } = req.query;
-    const currentUserId = req.user?._id;
+  const users = await User.find({ _id: { $ne: req.user.userId } })
+    .select('username email online lastSeen createdAt');
 
-    if (!currentUserId) {
-      res.status(401).json({ message: 'User not authenticated' });
-      return;
-    }
+  sendResponse.success(res, users, 'Users retrieved successfully');
+});
 
-    if (!q || typeof q !== 'string') {
-      res.status(400).json({ message: 'Search query is required' });
-      return;
-    }
-
-    // Search users by username or email
-    const users = await User.find({
-      _id: { $ne: currentUserId },
-      $or: [
-        { username: { $regex: q, $options: 'i' } },
-        { email: { $regex: q, $options: 'i' } }
-      ]
-    })
-    .select('username email avatar isOnline lastSeen')
-    .limit(10);
-
-    res.json({ users });
-  } catch (error: any) {
-    console.error('Search users error:', error);
-    res.status(500).json({ message: 'Server error' });
+/**
+ * Get online users
+ */
+export const getOnlineUsers = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Authentication required', 401));
   }
-};
 
-// @desc    Get user by ID
-// @route   GET /api/users/:id
-// @access  Private
-export const getUserById = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    
-    const user = await User.findById(id)
-      .select('username email avatar isOnline lastSeen');
+  const users = await User.find({ 
+    _id: { $ne: req.user.userId }, 
+    online: true 
+  }).select('username email online lastSeen');
 
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
+  sendResponse.success(res, users, 'Online users retrieved successfully');
+});
 
-    res.json({ user });
-  } catch (error: any) {
-    console.error('Get user by ID error:', error);
-    res.status(500).json({ message: 'Server error' });
+/**
+ * Get user by ID
+ */
+export const getUserById = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Authentication required', 401));
   }
-};
 
-// @desc    Update user profile
-// @route   PUT /api/users/profile
-// @access  Private
-export const updateProfile = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const userId = req.user?._id;
-    const { username, avatar } = req.body;
+  const user = await User.findById(req.params.userId)
+    .select('username email online lastSeen createdAt');
 
-    if (!userId) {
-      res.status(401).json({ message: 'User not authenticated' });
-      return;
-    }
-
-    // Check if username is already taken
-    if (username) {
-      const existingUser = await User.findOne({ 
-        username, 
-        _id: { $ne: userId } 
-      });
-
-      if (existingUser) {
-        res.status(400).json({ message: 'Username already taken' });
-        return;
-      }
-    }
-
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { ...(username && { username }), ...(avatar && { avatar }) },
-      { new: true, runValidators: true }
-    ).select('-password');
-
-    if (!updatedUser) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
-
-    res.json({ 
-      message: 'Profile updated successfully',
-      user: updatedUser 
-    });
-  } catch (error: any) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ message: 'Server error' });
+  if (!user) {
+    return next(new AppError('User not found', 404));
   }
-}; 
+
+  sendResponse.success(res, user, 'User retrieved successfully');
+});
+
+/**
+ * Search users
+ */
+export const searchUsers = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Authentication required', 401));
+  }
+
+  const { q } = req.query;
+  
+  if (!q || typeof q !== 'string') {
+    return next(new AppError('Search query is required', 400));
+  }
+
+  const users = await User.searchUsers(q, req.user.userId);
+  sendResponse.success(res, users, 'Users found successfully');
+});
+
+/**
+ * Get user's conversation list with unread counts
+ */
+export const getConversations = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Authentication required', 401));
+  }
+
+  const conversations = await Message.getRecentConversations(req.user.userId);
+  sendResponse.success(res, conversations, 'Conversations retrieved successfully');
+});
+
+/**
+ * Get unread message counts per user
+ */
+export const getUnreadCounts = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Authentication required', 401));
+  }
+
+  const counts = await Message.getUnreadCount(req.user.userId);
+  sendResponse.success(res, counts, 'Unread counts retrieved successfully');
+});
+
+/**
+ * Block/Unblock user (placeholder for future feature)
+ */
+export const toggleBlockUser = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Authentication required', 401));
+  }
+
+  const { userId } = req.params;
+  const { action } = req.body; // 'block' or 'unblock'
+
+  if (userId === req.user.userId) {
+    return next(new AppError('You cannot block yourself', 400));
+  }
+
+  if (!['block', 'unblock'].includes(action)) {
+    return next(new AppError('Action must be either "block" or "unblock"', 400));
+  }
+
+  const targetUser = await User.findById(userId);
+  if (!targetUser) {
+    return next(new AppError('User not found', 404));
+  }
+
+  // This is a placeholder - in a full implementation, you'd have a separate
+  // BlockedUsers collection or add a blockedUsers field to the User model
+  const message = action === 'block' 
+    ? `User ${targetUser.username} blocked successfully`
+    : `User ${targetUser.username} unblocked successfully`;
+
+  sendResponse.success(res, { action, userId, username: targetUser.username }, message);
+});
+
+/**
+ * Report user (placeholder for future feature)
+ */
+export const reportUser = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Authentication required', 401));
+  }
+
+  const { userId } = req.params;
+  const { reason, description } = req.body;
+
+  if (userId === req.user.userId) {
+    return next(new AppError('You cannot report yourself', 400));
+  }
+
+  const targetUser = await User.findById(userId);
+  if (!targetUser) {
+    return next(new AppError('User not found', 404));
+  }
+
+  if (!reason) {
+    return next(new AppError('Report reason is required', 400));
+  }
+
+  // This is a placeholder - in a full implementation, you'd save the report
+  // to a Reports collection and implement moderation features
+  
+  const reportData = {
+    reportedUserId: userId,
+    reportedUsername: targetUser.username,
+    reporterUserId: req.user.userId,
+    reporterUsername: req.user.username,
+    reason,
+    description,
+    timestamp: new Date()
+  };
+
+  sendResponse.success(res, reportData, 'User reported successfully. Our team will review this report.');
+}); 

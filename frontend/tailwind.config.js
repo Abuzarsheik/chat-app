@@ -1,8 +1,10 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
   content: [
-    "./src/**/*.{js,jsx,ts,tsx}",
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -17,6 +19,7 @@ module.exports = {
           700: '#1d4ed8',
           800: '#1e40af',
           900: '#1e3a8a',
+          950: '#172554',
         },
         gray: {
           50: '#f9fafb',
@@ -29,11 +32,59 @@ module.exports = {
           700: '#374151',
           800: '#1f2937',
           900: '#111827',
+          950: '#030712',
         }
       },
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+      },
       animation: {
-        'bounce-slow': 'bounce 2s infinite',
-        'pulse-slow': 'pulse 3s infinite',
+        'fade-in': 'fadeIn 0.5s ease-in-out',
+        'slide-up': 'slideUp 0.3s ease-out',
+        'bounce-subtle': 'bounceSubtle 0.6s ease-in-out',
+        'pulse-subtle': 'pulseSubtle 2s infinite',
+        'typing': 'typing 1.4s infinite',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { transform: 'translateY(10px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        bounceSubtle: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-4px)' },
+        },
+        pulseSubtle: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.8' },
+        },
+        typing: {
+          '0%, 60%': { opacity: '0' },
+          '30%': { opacity: '1' },
+        }
+      },
+      backdropBlur: {
+        xs: '2px',
+      },
+      spacing: {
+        '18': '4.5rem',
+        '88': '22rem',
+        '100': '25rem',
+        '104': '26rem',
+        '108': '27rem',
+        '112': '28rem',
+        '128': '32rem',
+      },
+      maxWidth: {
+        '8xl': '88rem',
+        '9xl': '96rem',
+      },
+      borderRadius: {
+        '4xl': '2rem',
       }
     },
   },

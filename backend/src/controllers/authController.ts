@@ -1,192 +1,293 @@
-import { Request, Response } from 'express';
-import { validationResult } from 'express-validator';
-import jwt from 'jsonwebtoken';
+import { Response, NextFunction } from 'express';
 import User from '../models/User';
+import { JWTUtils } from '../utils/jwt';
+import { sendResponse, AppError, asyncHandler } from '../middleware/errorHandler';
+import { IAuthRequest, IRegisterData, ILoginData, ILoginResponse } from '../types';
 
-// Generate JWT token
-const generateToken = (userId: string): string => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET as string, {
-    expiresIn: '7d'
+/**
+ * Register a new user
+ */
+export const register = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const { username, email, password }: IRegisterData = req.body;
+
+  // Check if user already exists
+  const existingUser = await User.findOne({
+    $or: [{ email }, { username }]
   });
-};
 
-// Set token cookie
-const setTokenCookie = (res: Response, token: string): void => {
-  res.cookie('token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  if (existingUser) {
+    return next(new AppError('User with this email or username already exists', 400));
+  }
+
+  // Create new user
+  const user = new User({
+    username,
+    email,
+    password
   });
-};
 
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
-export const register = async (req: Request, res: Response): Promise<void> => {
-  try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ 
-        message: 'Validation failed', 
-        errors: errors.array() 
-      });
-      return;
+  await user.save();
+
+  // Generate tokens
+  const jwtPayload = {
+    userId: user._id.toString(),
+    email: user.email,
+    username: user.username
+  };
+
+  const { accessToken, refreshToken } = JWTUtils.generateTokens(jwtPayload);
+
+  // Set user as online
+  await user.setOnlineStatus(true);
+
+  // Prepare response data
+  const responseData: ILoginResponse = {
+    user: {
+      id: user._id.toString(),
+      username: user.username,
+      email: user.email,
+      online: user.online
+    },
+    accessToken,
+    refreshToken
+  };
+
+  sendResponse.success(res, responseData, 'User registered successfully', 201);
+});
+
+/**
+ * Login user
+ */
+export const login = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const { email, password }: ILoginData = req.body;
+
+  // Find user and include password field
+  const user = await User.findOne({ email }).select('+password');
+
+  if (!user) {
+    return next(new AppError('Invalid email or password', 401));
+  }
+
+  // Check password
+  const isPasswordValid = await user.comparePassword(password);
+
+  if (!isPasswordValid) {
+    return next(new AppError('Invalid email or password', 401));
+  }
+
+  // Generate tokens
+  const jwtPayload = {
+    userId: user._id.toString(),
+    email: user.email,
+    username: user.username
+  };
+
+  const { accessToken, refreshToken } = JWTUtils.generateTokens(jwtPayload);
+
+  // Set user as online
+  await user.setOnlineStatus(true);
+
+  // Prepare response data
+  const responseData: ILoginResponse = {
+    user: {
+      id: user._id.toString(),
+      username: user.username,
+      email: user.email,
+      online: user.online
+    },
+    accessToken,
+    refreshToken
+  };
+
+  sendResponse.success(res, responseData, 'Login successful');
+});
+
+/**
+ * Logout user
+ */
+export const logout = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Authentication required', 401));
+  }
+
+  // Set user as offline
+  const user = await User.findById(req.user.userId);
+  if (user) {
+    await user.setOnlineStatus(false);
+  }
+
+  sendResponse.success(res, null, 'Logout successful');
+});
+
+/**
+ * Refresh access token
+ */
+export const refreshToken = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Invalid refresh token', 401));
+  }
+
+  // Verify user still exists
+  const user = await User.findById(req.user.userId);
+  if (!user) {
+    return next(new AppError('User not found', 404));
+  }
+
+  // Generate new tokens
+  const jwtPayload = {
+    userId: user._id.toString(),
+    email: user.email,
+    username: user.username
+  };
+
+  const { accessToken, refreshToken: newRefreshToken } = JWTUtils.generateTokens(jwtPayload);
+
+  // Update last seen
+  await user.updateLastSeen();
+
+  const responseData = {
+    accessToken,
+    refreshToken: newRefreshToken,
+    user: {
+      id: user._id.toString(),
+      username: user.username,
+      email: user.email,
+      online: user.online
     }
+  };
 
-    const { username, email, password } = req.body;
+  sendResponse.success(res, responseData, 'Token refreshed successfully');
+});
 
-    // Check if user already exists
+/**
+ * Get current user profile
+ */
+export const getProfile = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Authentication required', 401));
+  }
+
+  const user = await User.findById(req.user.userId);
+  if (!user) {
+    return next(new AppError('User not found', 404));
+  }
+
+  const userProfile = {
+    id: user._id.toString(),
+    username: user.username,
+    email: user.email,
+    online: user.online,
+    lastSeen: user.lastSeen,
+    createdAt: user.createdAt
+  };
+
+  sendResponse.success(res, userProfile, 'Profile retrieved successfully');
+});
+
+/**
+ * Update user profile
+ */
+export const updateProfile = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Authentication required', 401));
+  }
+
+  const { username, email } = req.body;
+  const user = await User.findById(req.user.userId);
+
+  if (!user) {
+    return next(new AppError('User not found', 404));
+  }
+
+  // Check if username or email is already taken by another user
+  if (username && username !== user.username) {
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
-    });
-
-    if (existingUser) {
-      res.status(400).json({ 
-        message: existingUser.email === email 
-          ? 'User with this email already exists' 
-          : 'Username already taken'
-      });
-      return;
-    }
-
-    // Create user
-    const user = new User({
       username,
+      _id: { $ne: user._id }
+    });
+    if (existingUser) {
+      return next(new AppError('Username already taken', 400));
+    }
+    user.username = username;
+  }
+
+  if (email && email !== user.email) {
+    const existingUser = await User.findOne({
       email,
-      password
+      _id: { $ne: user._id }
     });
-
-    await user.save();
-
-    // Generate token
-    const token = generateToken((user._id as any).toString());
-
-    // Set cookie
-    setTokenCookie(res, token);
-
-    res.status(201).json({
-      message: 'User registered successfully',
-      user: {
-        id: user._id as any,
-        username: user.username,
-        email: user.email,
-        avatar: user.avatar,
-        isOnline: user.isOnline
-      },
-      token
-    });
-  } catch (error: any) {
-    console.error('Register error:', error);
-    res.status(500).json({ message: 'Server error' });
+    if (existingUser) {
+      return next(new AppError('Email already taken', 400));
+    }
+    user.email = email;
   }
-};
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
-export const login = async (req: Request, res: Response): Promise<void> => {
-  try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ 
-        message: 'Validation failed', 
-        errors: errors.array() 
-      });
-      return;
-    }
+  await user.save();
 
-    const { email, password } = req.body;
+  const updatedProfile = {
+    id: user._id.toString(),
+    username: user.username,
+    email: user.email,
+    online: user.online,
+    lastSeen: user.lastSeen,
+    createdAt: user.createdAt
+  };
 
-    // Check if user exists
-    const user = await User.findOne({ email });
-    if (!user) {
-      res.status(400).json({ message: 'Invalid credentials' });
-      return;
-    }
+  sendResponse.success(res, updatedProfile, 'Profile updated successfully');
+});
 
-    // Check password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      res.status(400).json({ message: 'Invalid credentials' });
-      return;
-    }
-
-    // Update user online status
-    user.isOnline = true;
-    user.lastSeen = new Date();
-    await user.save();
-
-    // Generate token
-    const token = generateToken((user._id as any).toString());
-
-    // Set cookie
-    setTokenCookie(res, token);
-
-    res.json({
-      message: 'Login successful',
-      user: {
-        id: user._id as any,
-        username: user.username,
-        email: user.email,
-        avatar: user.avatar,
-        isOnline: user.isOnline
-      },
-      token
-    });
-  } catch (error: any) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
+/**
+ * Change user password
+ */
+export const changePassword = asyncHandler(async (
+  req: IAuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  if (!req.user) {
+    return next(new AppError('Authentication required', 401));
   }
-};
 
-// @desc    Logout user
-// @route   POST /api/auth/logout
-// @access  Private
-export const logout = async (req: Request, res: Response): Promise<void> => {
-  try {
-    if (req.user) {
-      // Update user offline status
-      await User.findByIdAndUpdate(req.user._id, {
-        isOnline: false,
-        lastSeen: new Date()
-      });
-    }
+  const { currentPassword, newPassword } = req.body;
+  const user = await User.findById(req.user.userId).select('+password');
 
-    // Clear cookie
-    res.clearCookie('token');
-    res.json({ message: 'Logout successful' });
-  } catch (error: any) {
-    console.error('Logout error:', error);
-    res.status(500).json({ message: 'Server error' });
+  if (!user) {
+    return next(new AppError('User not found', 404));
   }
-};
 
-// @desc    Get user profile
-// @route   GET /api/auth/profile
-// @access  Private
-export const getProfile = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const user = req.user;
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
-
-    res.json({
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        avatar: user.avatar,
-        isOnline: user.isOnline,
-        lastSeen: user.lastSeen
-      }
-    });
-  } catch (error: any) {
-    console.error('Get profile error:', error);
-    res.status(500).json({ message: 'Server error' });
+  // Verify current password
+  const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+  if (!isCurrentPasswordValid) {
+    return next(new AppError('Current password is incorrect', 400));
   }
-}; 
+
+  // Update password
+  user.password = newPassword;
+  await user.save();
+
+  sendResponse.success(res, null, 'Password changed successfully');
+}); 
